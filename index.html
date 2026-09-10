@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="血糖チェック" />
+  <title>血糖コントロールチェック</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">毎日の記録</p>
+      <h1>血糖コントロールチェック</h1>
+    </div>
+    <div id="saveStatus" class="save-status" aria-live="polite">準備中…</div>
+  </header>
+
+  <main class="container">
+    <section class="card date-card" aria-label="日付選択">
+      <button id="prevDay" class="icon-btn" aria-label="前の日">‹</button>
+      <div class="date-center">
+        <input id="datePicker" type="date" aria-label="記録日" />
+        <div id="dateLabel" class="date-label"></div>
+      </div>
+      <button id="nextDay" class="icon-btn" aria-label="次の日">›</button>
+      <button id="todayBtn" class="subtle-btn">今日</button>
+    </section>
+
+    <section class="card progress-card">
+      <div class="progress-row">
+        <div>
+          <p class="label">今日の達成率</p>
+          <strong id="progressText" class="progress-text">0%</strong>
+        </div>
+        <div id="progressCount" class="progress-count">0 / 0</div>
+      </div>
+      <div class="progress-track" aria-hidden="true"><div id="progressBar" class="progress-bar"></div></div>
+      <p class="hint">チェックはタップした瞬間に端末へ保存されます。</p>
+    </section>
+
+    <section class="notice">
+      <strong>大前提</strong>
+      <p>ご自身の基礎代謝に必要なカロリー量を計算し、補食を含めてそのカロリー内におさまるよう、1日3回の食事でとる糖質は少し減らすなどして調整する</p>
+    </section>
+
+    <div id="actionSections"></div>
+
+    <section class="card">
+      <div class="section-heading">
+        <h2>血糖値が乱れているサイン</h2>
+        <span class="badge warning">症状があればチェック</span>
+      </div>
+      <div id="symptomList" class="check-list"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-heading">
+        <h2>スケーリング</h2>
+        <span class="badge">1〜5</span>
+      </div>
+      <p class="hint">調子が良いほど5、調子が悪いほど1に近づくように記録します。</p>
+      <div id="scaleList" class="scale-list"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-heading">
+        <h2>今日のメモ</h2>
+      </div>
+      <textarea id="dailyNote" rows="4" placeholder="例：昼食後に少し眠気。夕食後は問題なし。"></textarea>
+    </section>
+
+    <section class="card report-card">
+      <div class="section-heading">
+        <h2>LINE報告</h2>
+      </div>
+      <p class="hint">その日の記録から報告文を自動で作ります。</p>
+      <div class="button-grid">
+        <button id="copyFullBtn" class="primary-btn">報告文をコピー</button>
+        <button id="copyShortBtn" class="secondary-btn">短縮版をコピー</button>
+        <button id="shareBtn" class="secondary-btn">共有する</button>
+      </div>
+      <details class="preview-details">
+        <summary>報告文をプレビュー</summary>
+        <pre id="reportPreview"></pre>
+      </details>
+    </section>
+
+    <section class="card data-card">
+      <div class="section-heading">
+        <h2>記録・バックアップ</h2>
+      </div>
+      <p id="storageStatus" class="hint">保存状態を確認中…</p>
+      <div class="button-grid">
+        <button id="exportCsvBtn" class="secondary-btn">CSVを書き出す</button>
+        <button id="exportJsonBtn" class="secondary-btn">バックアップ保存</button>
+        <label class="secondary-btn file-btn">バックアップ復元<input id="importJsonInput" type="file" accept="application/json,.json" /></label>
+      </div>
+      <p class="fine-print">CSVはExcel等で確認するための出力です。完全な復元にはJSONバックアップを使います。</p>
+    </section>
+
+    <section class="card howto-card">
+      <details>
+        <summary>iPhoneでの使い方</summary>
+        <ol>
+          <li>このアプリをHTTPSで公開したURLをSafariで開きます。</li>
+          <li>Safariの共有メニューから「ホーム画面に追加」します。</li>
+          <li>以後はホーム画面のアイコンから起動します。</li>
+          <li>Safariが再読み込みされても、保存済みの記録は起動時に復元されます。</li>
+        </ol>
+      </details>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
