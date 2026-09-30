@@ -4,6 +4,9 @@ const DB_NAME = 'ketsuto-check-db';
 const DB_VERSION = 1;
 const STORE = 'days';
 
+const SWEETS_CONDITION_ID = 'sweets_eaten';
+const SWEETS_ACTION = ['meal_sweets_after', '甘いものは食後のデザートにした'];
+
 const ACTION_SECTIONS = [
   {
     id: 'morning',
@@ -33,8 +36,7 @@ const ACTION_SECTIONS = [
       ['meal_70_80', '腹7分目〜8分目で抑える'],
       ['meal_coffee_tea', '食後にブラックコーヒー or 緑茶を1杯飲む'],
       ['meal_move', '食後に食器洗いや軽い散歩、スクワットなど、軽く運動する'],
-      ['meal_highgi_pre', 'GI値の高いものを食べる時は、その前にナッツなどを食べて急激な血糖値上昇を予防する'],
-      ['meal_sweets_after', '甘いものを食べたい場合は、食後のデザートにする']
+      ['meal_highgi_pre', 'GI値の高いものを摂る前に、ナッツなど低GI食材をとって血糖コントロールをしておく']
     ]
   },
   {
@@ -53,8 +55,7 @@ const ACTION_SECTIONS = [
       ['avoid_wheat', '小麦を控える'],
       ['avoid_hfcs', '果糖ぶどう液糖を控える'],
       ['avoid_driedfruit', 'ドライフルーツを控える（ドライデーツはOK）'],
-      ['avoid_highgi', 'その他GI値のたかい食品を控える'],
-      ['avoid_highgi_pre', 'GI値の高いものを摂る前に、ナッツなど低GI食材をとって血糖コントロールをしておく']
+      ['avoid_highgi', 'その他GI値のたかい食品を控える']
     ]
   }
 ];
@@ -67,7 +68,6 @@ const SYMPTOMS = [
   ['sym_evening', '夕方以降体がだるくて仕方ない'],
   ['sym_irritable', '無性にイライラしたり、焦燥感や不安に駆られる'],
   ['sym_mood', 'メンタルのアップダウンが激しい。感情のコントロールが難しい（キレてしまうなど）'],
-  ['sym_wakeup2', '朝スッキリと起きられない'],
   ['sym_dream', '寝ている間に夢を見たり寝ても疲れが取れた感じがしない']
 ];
 
@@ -79,6 +79,7 @@ const SCALES = [
 ];
 
 const ALL_ACTIONS = ACTION_SECTIONS.flatMap(s => s.items);
+const ALL_EXPORT_ACTIONS = [...ALL_ACTIONS, SWEETS_ACTION];
 let db;
 let currentDate = todayISO();
 let noteTimer = null;
@@ -134,14 +135,26 @@ function getAllDays() {
 
 function buildUI() {
   const actionRoot = document.getElementById('actionSections');
-  actionRoot.innerHTML = ACTION_SECTIONS.map(section => `
-    <section class="card">
-      <div class="section-heading"><h2>${escapeHTML(section.title)}</h2><span class="badge">できたらチェック</span></div>
-      <div class="check-list">
-        ${section.items.map(([id, text]) => checkHTML('action', id, text)).join('')}
+  actionRoot.innerHTML = ACTION_SECTIONS.map(section => {
+    const conditional = section.id === 'meal' ? `
+      <div class="conditional-block">
+        ${checkHTML('condition', SWEETS_CONDITION_ID, '甘いものを食べた', 'condition-item')}
+        <div id="sweetsFollowup" class="conditional-followup" hidden>
+          <div class="conditional-guide">食べた場合だけチェック</div>
+          ${checkHTML('action', SWEETS_ACTION[0], SWEETS_ACTION[1], 'followup-item')}
+        </div>
       </div>
-    </section>
-  `).join('');
+    ` : '';
+    return `
+      <section class="card">
+        <div class="section-heading"><h2>${escapeHTML(section.title)}</h2><span class="badge">できたらチェック</span></div>
+        <div class="check-list">
+          ${section.items.map(([id, text]) => checkHTML('action', id, text)).join('')}
+          ${conditional}
+        </div>
+      </section>
+    `;
+  }).join('');
 
   document.getElementById('symptomList').innerHTML = SYMPTOMS.map(([id, text]) => checkHTML('symptom', id, text)).join('');
 
@@ -155,8 +168,9 @@ function buildUI() {
   `).join('');
 }
 
-function checkHTML(kind, id, text) {
-  return `<label class="check-item"><input type="checkbox" data-kind="${kind}" data-id="${id}"><span class="check-text">${escapeHTML(text)}</span></label>`;
+function checkHTML(kind, id, text, extraClass = '') {
+  const cls = extraClass ? ` ${extraClass}` : '';
+  return `<label class="check-item${cls}"><input type="checkbox" data-kind="${kind}" data-id="${id}"><span class="check-text">${escapeHTML(text)}</span></label>`;
 }
 
 function escapeHTML(s) {
@@ -164,7 +178,62 @@ function escapeHTML(s) {
 }
 
 function emptyRecord(date) {
-  return { date, actions: {}, symptoms: {}, scales: {}, note: '', updatedAt: null };
+  return { date, actions: {}, conditions: {}, symptoms: {}, scales: {}, note: '', updatedAt: null };
+}
+
+function getActionValue(record, id) {
+  if (id === 'meal_highgi_pre') {
+    return Boolean(record.actions?.meal_highgi_pre || record.actions?.avoid_highgi_pre);
+  }
+  return Boolean(record.actions?.[id]);
+}
+
+function getSymptomValue(record, id) {
+  if (id === 'sym_wakeup1') {
+    return Boolean(record.symptoms?.sym_wakeup1 || record.symptoms?.sym_wakeup2);
+  }
+  return Boolean(record.symptoms?.[id]);
+}
+
+function getConditionValue(record, id) {
+  if (id === SWEETS_CONDITION_ID) {
+    if (record.conditions && Object.prototype.hasOwnProperty.call(record.conditions, id)) {
+      return Boolean(record.conditions[id]);
+    }
+    // v1では「食後のデザートにした」だけが存在したため、チェック済みなら
+    // 「甘いものを食べた」と推定して過去記録を引き継ぐ。
+    return Boolean(record.actions?.[SWEETS_ACTION[0]]);
+  }
+  return Boolean(record.conditions?.[id]);
+}
+
+function getEligibleActions(record) {
+  const items = [...ALL_ACTIONS];
+  if (getConditionValue(record, SWEETS_CONDITION_ID)) items.push(SWEETS_ACTION);
+  return items;
+}
+
+function completionStats(record) {
+  const eligible = getEligibleActions(record);
+  const checked = eligible.filter(([id]) => getActionValue(record, id)).length;
+  const total = eligible.length;
+  return { checked, total, pct: total ? Math.round((checked / total) * 100) : 0 };
+}
+
+function getSectionItems(section, record) {
+  const items = [...section.items];
+  if (section.id === 'meal' && getConditionValue(record, SWEETS_CONDITION_ID)) items.push(SWEETS_ACTION);
+  return items;
+}
+
+function syncConditionalUI() {
+  const parent = document.querySelector(`input[data-kind="condition"][data-id="${SWEETS_CONDITION_ID}"]`);
+  const followup = document.getElementById('sweetsFollowup');
+  const child = document.querySelector(`input[data-kind="action"][data-id="${SWEETS_ACTION[0]}"]`);
+  if (!parent || !followup || !child) return;
+  followup.hidden = !parent.checked;
+  child.disabled = !parent.checked;
+  if (!parent.checked) child.checked = false;
 }
 
 async function loadDate(date) {
@@ -174,10 +243,13 @@ async function loadDate(date) {
   const record = (await getDay(date)) || emptyRecord(date);
 
   document.querySelectorAll('input[type="checkbox"][data-kind="action"]').forEach(el => {
-    el.checked = Boolean(record.actions?.[el.dataset.id]);
+    el.checked = getActionValue(record, el.dataset.id);
+  });
+  document.querySelectorAll('input[type="checkbox"][data-kind="condition"]').forEach(el => {
+    el.checked = getConditionValue(record, el.dataset.id);
   });
   document.querySelectorAll('input[type="checkbox"][data-kind="symptom"]').forEach(el => {
-    el.checked = Boolean(record.symptoms?.[el.dataset.id]);
+    el.checked = getSymptomValue(record, el.dataset.id);
   });
   document.querySelectorAll('.scale-btn').forEach(btn => {
     const active = Number(record.scales?.[btn.dataset.scale]) === Number(btn.dataset.value);
@@ -185,13 +257,19 @@ async function loadDate(date) {
     btn.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
   document.getElementById('dailyNote').value = record.note || '';
+  syncConditionalUI();
   updateDerived();
   setSaveStatus(record.updatedAt ? '保存済み' : '未記録', Boolean(record.updatedAt));
 }
 
 function collectRecord() {
   const actions = {};
-  document.querySelectorAll('input[type="checkbox"][data-kind="action"]').forEach(el => actions[el.dataset.id] = el.checked);
+  document.querySelectorAll('input[type="checkbox"][data-kind="action"]').forEach(el => {
+    // 非該当で非表示の条件付き項目はfalseとして保存する。
+    actions[el.dataset.id] = el.disabled ? false : el.checked;
+  });
+  const conditions = {};
+  document.querySelectorAll('input[type="checkbox"][data-kind="condition"]').forEach(el => conditions[el.dataset.id] = el.checked);
   const symptoms = {};
   document.querySelectorAll('input[type="checkbox"][data-kind="symptom"]').forEach(el => symptoms[el.dataset.id] = el.checked);
   const scales = {};
@@ -202,6 +280,7 @@ function collectRecord() {
   return {
     date: currentDate,
     actions,
+    conditions,
     symptoms,
     scales,
     note: document.getElementById('dailyNote').value.trim(),
@@ -229,9 +308,8 @@ function setSaveStatus(text, saved) {
 }
 
 function updateDerived() {
-  const checked = [...document.querySelectorAll('input[type="checkbox"][data-kind="action"]')].filter(el => el.checked).length;
-  const total = ALL_ACTIONS.length;
-  const pct = total ? Math.round((checked / total) * 100) : 0;
+  const record = collectRecord();
+  const { checked, total, pct } = completionStats(record);
   document.getElementById('progressText').textContent = `${pct}%`;
   document.getElementById('progressCount').textContent = `${checked} / ${total}`;
   document.getElementById('progressBar').style.width = `${pct}%`;
@@ -250,16 +328,15 @@ function formatDateLong(date) {
 
 function buildReport(short = false) {
   const record = collectRecord();
-  const checkedCount = Object.values(record.actions).filter(Boolean).length;
-  const pct = Math.round((checkedCount / ALL_ACTIONS.length) * 100);
-  const scaleMap = Object.fromEntries(SCALES);
+  const { checked: checkedCount, total, pct } = completionStats(record);
 
   if (short) {
     const sectionLines = ACTION_SECTIONS.map(section => {
-      const done = section.items.filter(([id]) => record.actions[id]).length;
-      return `${section.title.replace('（夜間低血糖対策）','')}：${done}/${section.items.length}`;
+      const items = getSectionItems(section, record);
+      const done = items.filter(([id]) => getActionValue(record, id)).length;
+      return `${section.title.replace('（夜間低血糖対策）','')}：${done}/${items.length}`;
     });
-    const symptomNames = SYMPTOMS.filter(([id]) => record.symptoms[id]).map(([, text]) => text);
+    const symptomNames = SYMPTOMS.filter(([id]) => getSymptomValue(record, id)).map(([, text]) => text);
     const scaleLines = SCALES.map(([id, name]) => `${name}：${record.scales[id] ?? '未入力'}`);
     return [
       `【${reportDateLabel(record.date)}】`,
@@ -277,12 +354,12 @@ function buildReport(short = false) {
   const lines = [`【${reportDateLabel(record.date)} 血糖コントロール記録】`, ''];
   ACTION_SECTIONS.forEach(section => {
     lines.push(`■ ${section.title}`);
-    section.items.forEach(([id, text]) => lines.push(`${record.actions[id] ? '○' : '×'} ${text}`));
+    getSectionItems(section, record).forEach(([id, text]) => lines.push(`${getActionValue(record, id) ? '○' : '×'} ${text}`));
     lines.push('');
   });
 
   lines.push('■ 血糖値が乱れているサイン');
-  const present = SYMPTOMS.filter(([id]) => record.symptoms[id]);
+  const present = SYMPTOMS.filter(([id]) => getSymptomValue(record, id));
   if (!present.length) lines.push('なし');
   else present.forEach(([, text]) => lines.push(`・${text}`));
   lines.push('');
@@ -290,7 +367,7 @@ function buildReport(short = false) {
   lines.push('■ スコア');
   SCALES.forEach(([id, name]) => lines.push(`${name}：${record.scales[id] ?? '未入力'}`));
   lines.push('');
-  lines.push(`達成率：${pct}%（${checkedCount}/${ALL_ACTIONS.length}）`);
+  lines.push(`達成率：${pct}%（${checkedCount}/${total}）`);
   if (record.note) {
     lines.push('', '■ 今日のメモ', record.note);
   }
@@ -357,19 +434,20 @@ async function exportCSV() {
   const days = (await getAllDays()).sort((a,b) => a.date.localeCompare(b.date));
   const headers = [
     'date','completion_rate',
-    ...ALL_ACTIONS.map(([id]) => id),
+    ...ALL_EXPORT_ACTIONS.map(([id]) => id),
+    `condition_${SWEETS_CONDITION_ID}`,
     ...SYMPTOMS.map(([id]) => id),
     ...SCALES.map(([id]) => `scale_${id}`),
     'note','updatedAt'
   ];
   const rows = [headers.map(csvEscape).join(',')];
   for (const r of days) {
-    const checked = ALL_ACTIONS.filter(([id]) => r.actions?.[id]).length;
-    const pct = Math.round((checked / ALL_ACTIONS.length) * 100);
+    const { pct } = completionStats(r);
     const values = [
       r.date, pct,
-      ...ALL_ACTIONS.map(([id]) => r.actions?.[id] ? 1 : 0),
-      ...SYMPTOMS.map(([id]) => r.symptoms?.[id] ? 1 : 0),
+      ...ALL_EXPORT_ACTIONS.map(([id]) => getActionValue(r, id) ? 1 : 0),
+      getConditionValue(r, SWEETS_CONDITION_ID) ? 1 : 0,
+      ...SYMPTOMS.map(([id]) => getSymptomValue(r, id) ? 1 : 0),
       ...SCALES.map(([id]) => r.scales?.[id] ?? ''),
       r.note || '', r.updatedAt || ''
     ];
@@ -383,7 +461,7 @@ async function exportJSON() {
   const days = await getAllDays();
   const payload = {
     app: '血糖コントロールチェック',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     days
   };
@@ -421,7 +499,12 @@ async function importJSON(file) {
 
 function attachEvents() {
   document.addEventListener('change', e => {
-    if (e.target.matches('input[type="checkbox"][data-kind]')) saveNow();
+    if (!e.target.matches('input[type="checkbox"][data-kind]')) return;
+    if (e.target.dataset.kind === 'condition' && e.target.dataset.id === SWEETS_CONDITION_ID) {
+      syncConditionalUI();
+      updateDerived();
+    }
+    saveNow();
   });
 
   document.addEventListener('click', e => {
