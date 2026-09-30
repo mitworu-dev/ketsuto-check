@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f14" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>4-5-8 呼吸</title>
+  <style>
+    :root{
+      --bg:#0b0f14;
+      --panel:#111821;
+      --panel2:#16202a;
+      --text:#f4f7fa;
+      --muted:#97a3af;
+      --line:#263341;
+      --accent:#d8e7f5;
+      --accent2:#8fb0c8;
+      --danger:#c9a4a4;
+    }
+
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    body{
+      min-height:100%;
+      display:flex;
+      justify-content:center;
+      padding:
+        calc(20px + env(safe-area-inset-top))
+        18px
+        calc(24px + env(safe-area-inset-bottom));
+    }
+    .app{
+      width:min(100%,520px);
+      display:flex;
+      flex-direction:column;
+      gap:18px;
+    }
+
+    .top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      gap:12px;
+    }
+    h1{
+      margin:0;
+      font-size:24px;
+      letter-spacing:.02em;
+      font-weight:700;
+    }
+    .sub{
+      margin-top:5px;
+      color:var(--muted);
+      font-size:13px;
+    }
+    .progressText{
+      color:var(--muted);
+      font-size:14px;
+      white-space:nowrap;
+    }
+
+    .breathArea{
+      min-height:360px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      overflow:hidden;
+    }
+    .orbWrap{
+      width:260px;
+      height:260px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+    }
+    .orb{
+      width:150px;
+      height:150px;
+      border-radius:50%;
+      background:radial-gradient(circle at 35% 30%, #edf5fb 0%, #b9cad8 40%, #6f8798 100%);
+      opacity:.95;
+      box-shadow:0 0 40px rgba(174,201,222,.10);
+      transform:scale(.72);
+      transition-property:transform;
+      transition-timing-function:linear;
+      transition-duration:0s;
+    }
+
+    .centerText{
+      position:absolute;
+      inset:0;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      pointer-events:none;
+      text-align:center;
+    }
+    .phase{
+      font-size:28px;
+      font-weight:700;
+      letter-spacing:.06em;
+      text-shadow:0 2px 12px rgba(0,0,0,.5);
+    }
+    .seconds{
+      margin-top:2px;
+      font-size:70px;
+      line-height:1;
+      font-variant-numeric:tabular-nums;
+      font-weight:300;
+      text-shadow:0 2px 16px rgba(0,0,0,.55);
+    }
+    .hint{
+      margin-top:9px;
+      color:rgba(255,255,255,.72);
+      font-size:13px;
+    }
+
+    .card{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:16px;
+    }
+
+    .controls{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+    button,select{
+      min-height:52px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      font-size:17px;
+    }
+    button{
+      cursor:pointer;
+      background:var(--panel2);
+      color:var(--text);
+      font-weight:600;
+    }
+    button.primary{
+      background:var(--accent);
+      color:#0c1319;
+      border-color:transparent;
+    }
+    button:active{transform:translateY(1px)}
+    button:disabled{opacity:.45;cursor:not-allowed}
+
+    .settings{
+      display:grid;
+      gap:14px;
+    }
+    .row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+    }
+    .labelBlock{
+      min-width:0;
+    }
+    .label{
+      font-size:15px;
+      font-weight:600;
+    }
+    .desc{
+      margin-top:3px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.4;
+    }
+    select{
+      background:var(--panel2);
+      color:var(--text);
+      padding:0 12px;
+      min-width:108px;
+      font-size:16px;
+    }
+
+    .switch{
+      position:relative;
+      width:54px;
+      height:32px;
+      flex:0 0 auto;
+    }
+    .switch input{display:none}
+    .slider{
+      position:absolute;
+      inset:0;
+      background:#36414d;
+      border-radius:999px;
+      transition:.2s;
+    }
+    .slider:before{
+      content:"";
+      position:absolute;
+      width:26px;
+      height:26px;
+      left:3px;
+      top:3px;
+      border-radius:50%;
+      background:white;
+      transition:.2s;
+    }
+    .switch input:checked + .slider{background:#809caf}
+    .switch input:checked + .slider:before{transform:translateX(22px)}
+
+    .status{
+      text-align:center;
+      color:var(--muted);
+      font-size:13px;
+      min-height:18px;
+    }
+
+    .footerNote{
+      color:var(--muted);
+      text-align:center;
+      font-size:12px;
+      line-height:1.5;
+      padding:0 10px;
+    }
+
+    @media (max-width:380px){
+      .breathArea{min-height:320px}
+      .orbWrap{width:230px;height:230px}
+      .seconds{font-size:62px}
+      .phase{font-size:25px}
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .orb{transition:none !important}
+    }
+  </style>
+</head>
+<body>
+  <main class="app" id="app">
+    <section class="top">
+      <div>
+        <h1>4-5-8 呼吸</h1>
+        <div class="sub">4秒吸う → 5秒止める → 8秒吐く</div>
+      </div>
+      <div class="progressText" id="progressText">0 / 5 セット</div>
+    </section>
+
+    <section class="breathArea" aria-live="polite">
+      <div class="orbWrap">
+        <div class="orb" id="orb"></div>
+        <div class="centerText">
+          <div class="phase" id="phase">準備</div>
+          <div class="seconds" id="seconds">–</div>
+          <div class="hint" id="hint">開始を押してください</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <button class="primary" id="startPauseBtn" type="button">開始</button>
+      <button id="restartBtn" type="button">最初から</button>
+    </section>
+
+    <section class="card settings" aria-label="設定">
+      <div class="row">
+        <div class="labelBlock">
+          <div class="label">セット数</div>
+          <div class="desc">1セット = 17秒</div>
+        </div>
+        <select id="setsSelect" aria-label="セット数">
+          <option value="3">3セット</option>
+          <option value="5" selected>5セット</option>
+          <option value="10">10セット</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <div class="labelBlock">
+          <div class="label">毎秒のカウント音</div>
+          <div class="desc">画面を見なくても秒数が分かります</div>
+        </div>
+        <label class="switch" aria-label="毎秒のカウント音">
+          <input id="tickToggle" type="checkbox" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="row">
+        <div class="labelBlock">
+          <div class="label">音量</div>
+          <div class="desc">寝る前向けに小さめを推奨</div>
+        </div>
+        <select id="volumeSelect" aria-label="音量">
+          <option value="0">無音</option>
+          <option value="0.16" selected>小</option>
+          <option value="0.28">中</option>
+        </select>
+      </div>
+    </section>
+
+    <div class="status" id="status"></div>
+    <div class="footerNote">
+      音は開始ボタンを押した後に有効になります。<br>
+      吸う＝少し高め、止める＝中間、吐く＝少し低めの優しい音です。
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      const PHASES = [
+        { key:"inhale", label:"吸う", duration:4, freq:520, scale:1.18, hint:"ゆっくり鼻から" },
+        { key:"hold",   label:"止める", duration:5, freq:420, scale:1.18, hint:"力まずそのまま" },
+        { key:"exhale", label:"吐く", duration:8, freq:320, scale:.72, hint:"ゆっくり長く" }
+      ];
+
+      const els = {
+        phase: document.getElementById("phase"),
+        seconds: document.getElementById("seconds"),
+        hint: document.getElementById("hint"),
+        orb: document.getElementById("orb"),
+        startPauseBtn: document.getElementById("startPauseBtn"),
+        restartBtn: document.getElementById("restartBtn"),
+        setsSelect: document.getElementById("setsSelect"),
+        tickToggle: document.getElementById("tickToggle"),
+        volumeSelect: document.getElementById("volumeSelect"),
+        progressText: document.getElementById("progressText"),
+        status: document.getElementById("status")
+      };
+
+      let audioCtx = null;
+      let timer = null;
+      let running = false;
+      let phaseIndex = 0;
+      let secondsLeft = PHASES[0].duration;
+      let completedSets = 0;
+      let totalSets = Number(els.setsSelect.value);
+
+      function ensureAudio(){
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        if (!audioCtx) audioCtx = new AC();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+        return audioCtx;
+      }
+
+      function softTone(freq, volumeMultiplier=1, duration=.11, delay=0){
+        const ctx = ensureAudio();
+        const baseVolume = Number(els.volumeSelect.value);
+        if (!ctx || baseVolume <= 0) return;
+
+        const t0 = ctx.currentTime + delay;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, t0);
+
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(900, t0);
+        filter.Q.setValueAtTime(.4, t0);
+
+        const peak = Math.max(0.001, baseVolume * volumeMultiplier);
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(peak, t0 + .018);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(t0);
+        osc.stop(t0 + duration + .03);
+      }
+
+      function phaseTone(){
+        const p = PHASES[phaseIndex];
+        softTone(p.freq, .68, .18);
+      }
+
+      function tickTone(){
+        const p = PHASES[phaseIndex];
+        softTone(p.freq * .82, .28, .07);
+      }
+
+      function finishChime(){
+        softTone(440, .42, .28, 0);
+        softTone(554, .34, .32, .22);
+        softTone(660, .28, .42, .46);
+      }
+
+      function updateProgress(){
+        els.progressText.textContent = `${completedSets} / ${totalSets} セット`;
+      }
+
+      function animateOrb(phase){
+        const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (reduced) {
+          els.orb.style.transitionDuration = "0s";
+          els.orb.style.transform = `scale(${phase.scale})`;
+          return;
+        }
+
+        if (phase.key === "hold"){
+          els.orb.style.transitionDuration = "0.25s";
+        } else {
+          els.orb.style.transitionDuration = `${phase.duration}s`;
+        }
+        els.orb.style.transform = `scale(${phase.scale})`;
+      }
+
+      function renderPhase(playTone=false){
+        const p = PHASES[phaseIndex];
+        els.phase.textContent = p.label;
+        els.seconds.textContent = secondsLeft;
+        els.hint.textContent = p.hint;
+        animateOrb(p);
+        if (playTone) phaseTone();
+      }
+
+      function resetState(){
+        clearInterval(timer);
+        timer = null;
+        running = false;
+        phaseIndex = 0;
+        secondsLeft = PHASES[0].duration;
+        completedSets = 0;
+        totalSets = Number(els.setsSelect.value);
+        els.startPauseBtn.textContent = "開始";
+        els.phase.textContent = "準備";
+        els.seconds.textContent = "–";
+        els.hint.textContent = "開始を押してください";
+        els.orb.style.transitionDuration = ".4s";
+        els.orb.style.transform = "scale(.72)";
+        els.status.textContent = "";
+        updateProgress();
+      }
+
+      function complete(){
+        clearInterval(timer);
+        timer = null;
+        running = false;
+        completedSets = totalSets;
+        updateProgress();
+        els.phase.textContent = "終了";
+        els.seconds.textContent = "✓";
+        els.hint.textContent = "おやすみなさい";
+        els.startPauseBtn.textContent = "もう一度";
+        els.orb.style.transitionDuration = "1.3s";
+        els.orb.style.transform = "scale(.86)";
+        finishChime();
+        els.status.textContent = `${totalSets}セット完了しました`;
+      }
+
+      function nextPhase(){
+        if (phaseIndex === PHASES.length - 1){
+          completedSets++;
+          updateProgress();
+
+          if (completedSets >= totalSets){
+            complete();
+            return false;
+          }
+          phaseIndex = 0;
+        } else {
+          phaseIndex++;
+        }
+
+        secondsLeft = PHASES[phaseIndex].duration;
+        renderPhase(true);
+        return true;
+      }
+
+      function step(){
+        secondsLeft--;
+
+        if (secondsLeft <= 0){
+          nextPhase();
+          return;
+        }
+
+        els.seconds.textContent = secondsLeft;
+        if (els.tickToggle.checked) tickTone();
+      }
+
+      function start(){
+        totalSets = Number(els.setsSelect.value);
+        if (completedSets >= totalSets) resetState();
+
+        ensureAudio();
+        running = true;
+        els.startPauseBtn.textContent = "一時停止";
+        els.status.textContent = "呼吸に合わせてください";
+
+        if (els.phase.textContent === "準備"){
+          phaseIndex = 0;
+          secondsLeft = PHASES[0].duration;
+          renderPhase(true);
+        } else {
+          const p = PHASES[phaseIndex];
+          els.phase.textContent = p.label;
+          els.hint.textContent = p.hint;
+        }
+
+        clearInterval(timer);
+        timer = setInterval(step, 1000);
+      }
+
+      function pause(){
+        clearInterval(timer);
+        timer = null;
+        running = false;
+        els.startPauseBtn.textContent = "再開";
+        els.status.textContent = "一時停止中";
+        els.hint.textContent = "そのまま休んで大丈夫です";
+      }
+
+      els.startPauseBtn.addEventListener("click", () => {
+        if (running) pause();
+        else start();
+      });
+
+      els.restartBtn.addEventListener("click", resetState);
+
+      els.setsSelect.addEventListener("change", () => {
+        if (!running) {
+          totalSets = Number(els.setsSelect.value);
+          if (completedSets > totalSets) completedSets = 0;
+          updateProgress();
+        }
+      });
+
+      els.volumeSelect.addEventListener("change", () => {
+        if (Number(els.volumeSelect.value) > 0) {
+          ensureAudio();
+          softTone(440, .45, .12);
+        }
+      });
+
+      resetState();
+    })();
+  </script>
+</body>
+</html>
